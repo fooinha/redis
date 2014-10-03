@@ -282,7 +282,13 @@ struct redisCommand redisCommandTable[] = {
     {"pfcount",pfcountCommand,-2,"w",0,NULL,1,1,1,0,0},
     {"pfmerge",pfmergeCommand,-2,"wm",0,NULL,1,-1,1,0,0},
     {"pfdebug",pfdebugCommand,-3,"w",0,NULL,0,0,0,0,0},
-    {"latency",latencyCommand,-2,"arslt",0,NULL,0,0,0,0,0}
+    {"latency",latencyCommand,-2,"arslt",0,NULL,0,0,0,0,0},
+    {"wvincrby",wvincrbyCommand,-2,"wm",0,NULL,1,1,1,0,0},
+    {"wvreset",wvresetCommand,-2,"w",0,NULL,1,-1,1,0,0},
+    {"wvdebug",wvdebugCommand,-2,"rs",0,NULL,0,0,0,0,0},
+    {"wvget",wvgetCommand,-2,"r",0,NULL,0,0,0,0,0},
+    {"wvtotal",wvtotalCommand,2,"rF",0,NULL,0,0,0,0,0}
+
 };
 
 struct evictionPoolEntry *evictionPoolAlloc(void);
@@ -1291,6 +1297,8 @@ void createSharedObjects(void) {
     shared.crlf = createObject(REDIS_STRING,sdsnew("\r\n"));
     shared.ok = createObject(REDIS_STRING,sdsnew("+OK\r\n"));
     shared.err = createObject(REDIS_STRING,sdsnew("-ERR\r\n"));
+    shared.no = createObject(REDIS_STRING,sdsnew("no"));
+    shared.yes = createObject(REDIS_STRING,sdsnew("yes"));
     shared.emptybulk = createObject(REDIS_STRING,sdsnew("$0\r\n\r\n"));
     shared.czero = createObject(REDIS_STRING,sdsnew(":0\r\n"));
     shared.cone = createObject(REDIS_STRING,sdsnew(":1\r\n"));
@@ -1311,6 +1319,8 @@ void createSharedObjects(void) {
         "-ERR source and destination objects are the same\r\n"));
     shared.outofrangeerr = createObject(REDIS_STRING,sdsnew(
         "-ERR index out of range\r\n"));
+    shared.toobigerr = createObject(REDIS_STRING,sdsnew(
+        "-ERR value too big\r\n"));
     shared.noscripterr = createObject(REDIS_STRING,sdsnew(
         "-NOSCRIPT No matching script. Please use EVAL.\r\n"));
     shared.loadingerr = createObject(REDIS_STRING,sdsnew(

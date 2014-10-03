@@ -73,7 +73,7 @@ rand.o: rand.c
 rdb.o: rdb.c redis.h fmacros.h config.h ../deps/lua/src/lua.h \
  ../deps/lua/src/luaconf.h ae.h sds.h dict.h adlist.h zmalloc.h anet.h \
  ziplist.h intset.h version.h util.h latency.h sparkline.h rdb.h rio.h \
- lzf.h zipmap.h endianconv.h
+ lzf.h zipmap.h endianconv.h wave.h
 redis-benchmark.o: redis-benchmark.c fmacros.h ae.h \
  ../deps/hiredis/hiredis.h sds.h adlist.h zmalloc.h
 redis-check-aof.o: redis-check-aof.c fmacros.h config.h
@@ -136,6 +136,7 @@ t_zset.o: t_zset.c redis.h fmacros.h config.h ../deps/lua/src/lua.h \
  ../deps/lua/src/luaconf.h ae.h sds.h dict.h adlist.h zmalloc.h anet.h \
  ziplist.h intset.h version.h util.h latency.h sparkline.h rdb.h rio.h
 util.o: util.c fmacros.h util.h sds.h
+wave.o: wave.c wave.h redisassert.h adlist.h redis.h
 ziplist.o: ziplist.c zmalloc.h util.h sds.h ziplist.h endianconv.h \
  config.h redisassert.h
 zipmap.o: zipmap.c zmalloc.h endianconv.h config.h

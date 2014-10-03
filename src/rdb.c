@@ -31,6 +31,7 @@
 #include "lzf.h"    /* LZF compression library */
 #include "zipmap.h"
 #include "endianconv.h"
+#include "wave.h"
 
 #include <math.h>
 #include <sys/types.h>
@@ -460,6 +461,8 @@ int rdbSaveObjectType(rio *rdb, robj *o) {
             return rdbSaveType(rdb,REDIS_RDB_TYPE_HASH);
         else
             redisPanic("Unknown hash encoding");
+    case REDIS_WAVE:
+        return rdbSaveType(rdb, REDIS_WAVE);
     default:
         redisPanic("Unknown object type");
     }
@@ -473,6 +476,32 @@ int rdbLoadObjectType(rio *rdb) {
     if ((type = rdbLoadType(rdb)) == -1) return -1;
     if (!rdbIsObjectType(type)) return -1;
     return type;
+}
+
+/* Save a wave's list and return written bytes*/
+int rdbSaveWaveList(rio *rdb, list *list) {
+     int n, nwritten = 0;
+
+     if ((n = rdbSaveLen(rdb,listLength(list))) == -1) return -1;
+     nwritten += n;
+
+     listIter li;
+     listNode *ln;
+     listRewind(list,&li);
+     while((ln = listNext(&li))) {
+         waveitem *item = listNodeValue(ln);
+
+         if ((n = rdbSaveLongLongAsStringObject(rdb,item->pos)) == -1) return -1;
+         nwritten += n;
+
+         if ((n = rdbSaveLongLongAsStringObject(rdb,item->v)) == -1) return -1;
+         nwritten += n;
+
+         if ((n = rdbSaveLongLongAsStringObject(rdb,item->z)) == -1) return -1;
+         nwritten += n;
+     }
+
+     return nwritten;
 }
 
 /* Save a Redis object. Returns -1 on error, 0 on success. */
@@ -588,6 +617,50 @@ int rdbSaveObject(rio *rdb, robj *o) {
         } else {
             redisPanic("Unknown hash encoding");
         }
+
+
+    }
+    else if (o->type == REDIS_WAVE) {
+        wave *w = o->ptr;
+
+
+        /* Encode wave properties */
+///TODO: NO NEED TO SAVE AS STRING
+        if ((n = rdbSaveLongLongAsStringObject(rdb,w->expire)) == -1) return -1;
+        nwritten += n;
+        if ((n = rdbSaveLongLongAsStringObject(rdb,w->N)) == -1) return -1;
+        nwritten += n;
+        if ((n = rdbSaveDoubleValue(rdb,w->E)) == -1) return -1;
+        nwritten += n;
+        if ((n = rdbSaveLongLongAsStringObject(rdb,w->R)) == -1) return -1;
+        nwritten += n;
+        if ((n = rdbSaveLongLongAsStringObject(rdb,w->M)) == -1) return -1;
+        nwritten += n;
+        if ((n = rdbSaveLongLongAsStringObject(rdb,w->start)) == -1) return -1;
+        nwritten += n;
+        if ((n = rdbSaveLongLongAsStringObject(rdb,w->last)) == -1) return -1;
+        nwritten += n;
+        if ((n = rdbSaveLongLongAsStringObject(rdb,w->pos)) == -1) return -1;
+        nwritten += n;
+        if ((n = rdbSaveLongLongAsStringObject(rdb,w->total)) == -1) return -1;
+        nwritten += n;
+        if ((n = rdbSaveLongLongAsStringObject(rdb,w->z)) == -1) return -1;
+        nwritten += n;
+
+        /* Encode List of levels queues */
+        long long num_levels = waveNumLevels(w);
+        if ((n = rdbSaveLen(rdb,num_levels)) == -1) return -1;
+        nwritten += n;
+
+        for (long long i = 0; i < num_levels; ++i) {
+            if (( n = rdbSaveWaveList(rdb, w->l[i])) == -1) return -1;
+            nwritten += n;
+        }
+
+        /* Encode linked list L */
+        if (( n = rdbSaveWaveList(rdb, w->L)) == -1) return -1;
+        nwritten += n;
+
 
     } else {
         redisPanic("Unknown object type");
@@ -1027,6 +1100,104 @@ robj *rdbLoadObject(int rdbtype, rio *rdb) {
                 redisPanic("Unknown encoding");
                 break;
         }
+    } else if (rdbtype == REDIS_WAVE){
+
+        long long N, ts, last, pos, rank, r, R, M;
+        char expire = 1;
+        long l;
+        unsigned int num_levels, list_len;
+        robj *obj;
+        double E;
+
+        if ( (obj = rdbLoadStringObject(rdb)) == NULL) return NULL;
+        string2l(obj->ptr,sdslen(obj->ptr), &l);
+
+        expire = (char) l;
+
+        if ( (obj = rdbLoadStringObject(rdb)) == NULL) return NULL;
+        string2ll(obj->ptr,sdslen(obj->ptr), &N);
+
+        rdbLoadDoubleValue(rdb, &E);
+
+        if ( (obj = rdbLoadStringObject(rdb)) == NULL) return NULL;
+        string2ll(obj->ptr,sdslen(obj->ptr), &R);
+
+        if ( (obj = rdbLoadStringObject(rdb)) == NULL) return NULL;
+        string2ll(obj->ptr,sdslen(obj->ptr), &M);
+
+        if ( (obj = rdbLoadStringObject(rdb)) == NULL) return NULL;
+        string2ll(obj->ptr,sdslen(obj->ptr), &ts);
+
+        if ( (obj = rdbLoadStringObject(rdb)) == NULL) return NULL;
+        string2ll(obj->ptr,sdslen(obj->ptr), &last);
+
+        if ( (obj = rdbLoadStringObject(rdb)) == NULL) return NULL;
+        string2ll(obj->ptr,sdslen(obj->ptr), &pos);
+
+        if ( (obj = rdbLoadStringObject(rdb)) == NULL) return NULL;
+        string2ll(obj->ptr,sdslen(obj->ptr), &rank);
+
+        if ( (obj = rdbLoadStringObject(rdb)) == NULL) return NULL;
+        string2ll(obj->ptr,sdslen(obj->ptr), &r);
+
+        wave *w = waveCreate(N, E, R, ts, expire);
+
+        w->pos = pos;
+        w->total = rank;
+        w->z = r;
+
+        num_levels = rdbLoadLen(rdb,NULL);
+
+        for (unsigned int i = 0; i < num_levels; ++i) {
+
+            unsigned int level_len = rdbLoadLen(rdb,NULL);
+            w->l[i] = listCreate();
+
+            for (unsigned int j = 0; j < level_len; ++j) {
+                long long item_pos, item_v, item_z;
+                waveitem *new;
+
+                if ( (obj = rdbLoadStringObject(rdb)) == NULL) return NULL;
+                string2ll(obj->ptr,sdslen(obj->ptr), &item_pos);
+
+                if ( (obj = rdbLoadStringObject(rdb)) == NULL) return NULL;
+                string2ll(obj->ptr,sdslen(obj->ptr), &item_v);
+
+                if ( (obj = rdbLoadStringObject(rdb)) == NULL) return NULL;
+                string2ll(obj->ptr,sdslen(obj->ptr), &item_z);
+
+                if ( (new = waveitemCreate(item_pos, item_v, item_z)) == NULL ) return NULL;
+
+               listAddNodeTail(w->l[i], new);
+
+            }
+        }
+
+        ///TODO: Duplicate code
+        list_len = rdbLoadLen(rdb,NULL);
+        w->L = listCreate();
+        for (unsigned int j = 0; j < list_len; ++j) {
+            long long item_pos, item_v, item_z;
+            waveitem *new;
+
+            if ( (obj = rdbLoadStringObject(rdb)) == NULL) return NULL;
+            string2ll(obj->ptr,sdslen(obj->ptr), &item_pos);
+
+            if ( (obj = rdbLoadStringObject(rdb)) == NULL) return NULL;
+            string2ll(obj->ptr,sdslen(obj->ptr), &item_v);
+
+            if ( (obj = rdbLoadStringObject(rdb)) == NULL) return NULL;
+            string2ll(obj->ptr,sdslen(obj->ptr), &item_z);
+
+            if ( (new = waveitemCreate(item_pos, item_v, item_z)) == NULL ) return NULL;
+
+            listAddNodeTail(w->L, new);
+        }
+
+        o = createObject(REDIS_WAVE,w);
+        o->encoding = REDIS_ENCODING_RAW;
+        o->type = REDIS_WAVE;
+
     } else {
         redisPanic("Unknown object type");
     }

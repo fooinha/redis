@@ -15,7 +15,8 @@ static char *commandGroups[] = {
     "connection",
     "server",
     "scripting",
-    "hyperloglog"
+    "hyperloglog",
+    "wave"
 };
 
 struct commandHelp {
@@ -824,7 +825,35 @@ struct commandHelp {
     "destination numkeys key [key ...] [WEIGHTS weight] [AGGREGATE SUM|MIN|MAX]",
     "Add multiple sorted sets and store the resulting sorted set in a new key",
     4,
-    "2.0.0" }
+    "2.0.0" },
+    { "WVRESET",
+    "key [key ...]",
+    "Resets the wave's state",
+    12,
+    "2.9.57" },
+    { "WVDEBUG",
+    "key [SHOW-LISTS=no]",
+    "Get debugging information about a wave state",
+    12,
+    "2.9.57"
+    },
+    { "WVINCRBY",
+    "key [INCREMENT=1] [TIMESTAMP=now] [EXPIRE=yes] [WAVE-N=60] [WAVE-E=0.05] [WAVE-R=1024]",
+    "Increment the integer of wave's total and initializes it if required",
+    12,
+    "2.9.57"
+    },
+    { "WVGET",
+    "key [TIMESTAMP=now] [FAST=no]",
+    "Gets the integer of wave's counter total",
+    12,
+    "2.9.57"
+    },{ "WVTOTAL",
+    "key",
+    "Gets the integer of wave's total since the beginning",
+    12,
+    "2.9.57"
+    }
 };
 
 #endif

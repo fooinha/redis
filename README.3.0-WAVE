@@ -1,0 +1,96 @@
+Information about this fork/branch
+==================================
+
+  Warning: This is an EXPERIMENTAL branch. Please consider some testing and additional development time
+before using in a production environment.
+
+  Time Sliding window counting using the wave data structure.
+  Basic deterministic wave implementation with sum of bounded integers variation.
+
+  The deterministic wave scheme can be extended to handle the problem of maintaining
+the sum of the last N items in a data stream, where each item is an integer in [0..R].
+
+
+Open issues
+-------------------
+ - To assess space usage, altough it is configurable (per key) by using an error ratio option.
+  
+
+Wave commands help
+--------------------
+
+  WVRESET key [key ...]
+  summary: Resets the wave's state
+  since: 2.9.57
+
+  WVDEBUG key [SHOW-LISTS=no]
+  summary: Get debugging information about a wave state
+  since: 2.9.57
+
+  WVINCRBY key [INCREMENT=1] [TIMESTAMP=now] [AUTO-EXPIRE=yes] [SIZE=60] [ERROR=0.05] [MAX-INCR=1024]"
+  summary: Increment the wave's integer counter and returns current total
+  since: 2.9.57
+
+   - INCREMENT [optional] - Default: 1
+   - TIMESTAMP [optional] - Default: server's epoch time
+   - AUTO-EXPIRE [optional] - Default: yes
+
+      If wave's key expiration is enabled. The expiration time is the sum of window size to the
+last timestamp received.
+
+   - SIZE      [optional] - Default: 60 (seconds)
+
+     The sliding window size
+
+
+   - ERROR     [optional] - Default: 0.05 
+
+     Estimate error ratio when querying wave's counter total inside the sliding window for a specific time
+
+
+  WVGET key [TIMESTAMP=now] [FAST=no]
+  summary: Gets the integer value of wave's counter total inside the sliding window
+  since: 2.9.57
+
+
+  WVTOTAL key
+  summary: Gets the integer of wave's counter total since the beginning
+
+   
+
+Playing with Redis wave
+-----------------------
+
+You can use redis-cli to play with Redis. Start a redis-server instance,
+then in another terminal try the following:
+
+    % cd src
+    % ./redis-cli
+    redis> ping
+    PONG
+    redis> wvincrby foo 10
+    (integer) 10
+    redis> wvincrby foo 15
+    (integer) 25
+    redis> wvincrby foo
+    (integer) 26
+    redis> wvdebug foo no
+     1) " C -----------------------------------------------"
+     2) "     NOW => 1412329148"
+     3) " C -----------------------------------------------"
+     4) "  EXPIRE => 2"
+     5) "       N => 60"
+     6) "       E => 0.050000"
+     7) "       R => 153722867280912928"
+     8) "       M => 9223372036854775807"
+     9) " C -----------------------------------------------"
+    10) "start ts => 1412329139"
+    11) " last ts => 1412329144"
+    12) "limit ts => 1412329204"
+    13) "     pos => 5"
+    14) "   total => 26"
+    15) "       z => 0"
+    16) " C -----------------------------------------------"
+
+
+Enjoy!
