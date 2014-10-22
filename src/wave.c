@@ -437,7 +437,7 @@ unsigned long waveComputeTotalLevel(
 
    // printf("|=> TOTAL=%lld V=%lld J=%lu L=%lu LOG(H)=%f\n", total, v, j, num_levels, log(h) );
 
-   if (j > num_levels)
+   if (j >= num_levels)
       j = num_levels - 1;
 
    // printf("|=> F=%lu, G=%lu, H=%lu, J=%lu \n", f, g, h, j );
@@ -551,7 +551,8 @@ int waveSet(wave *w, long long v, long long ts) {
 
 
    /// (b) If the level j queue is full, then discard the tail of the queue and splice it out of L.
-   if (listLength(w->l[j]) > waveLevelMaxPositions(w->E)) {
+   if (w->l && w->l[j] && 
+         listLength(w->l[j]) > waveLevelMaxPositions(w->E)) {
 
       listNode *kn;
       listIter ki;
@@ -585,8 +586,11 @@ int waveSet(wave *w, long long v, long long ts) {
 
    //    printf(" * ADD TS=%lld V=%lld Z=%lld\n", ts, v, w->total);
 
-   listAddNodeHead(w->l[j], new);  // Add(pos,rank) to the head of the level j
-   listAddNodeTail(w->L, new);     // and the tail of L
+   if (w->l && w->l[j])
+      listAddNodeHead(w->l[j], new);  // Add(pos,rank) to the head of the level j
+
+   if (w->L)
+      listAddNodeTail(w->L, new);     // and the tail of L
 
 
    return REDIS_OK;
